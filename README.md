@@ -1,2 +1,0 @@
-# CasePulse
-court based project
