@@ -1,5 +1,5 @@
 import React from 'react';
-import UploadPDF from '../components/UploadPDF';
+import UploadPDF from '../components/upload/UploadPDF';
 
 export default function UploadPage() {
   return (

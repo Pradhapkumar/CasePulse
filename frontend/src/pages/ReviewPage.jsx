@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import ExtractedData from "../components/ExtractedData";
-import ActionPlan from "../components/ActionPlan";
-import VerificationPanel from "../components/VerificationPanel";
+import ExtractedData from "../components/extraction/ExtractedData";
+import ActionPlan from "../components/action/ActionPlan";
+import VerificationPanel from "../components/verification/VerificationPanel";
 
 export default function ReviewPage() {
   const [extractedData, setExtractedData] = useState(null);

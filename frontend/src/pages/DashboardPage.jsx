@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Dashboard from "../components/Dashboard";
+import Dashboard from "../components/dashboard/Dashboard";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState(null);
