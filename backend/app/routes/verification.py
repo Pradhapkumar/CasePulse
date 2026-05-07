@@ -1,176 +1,96 @@
-"""
-Verification Route — /api/verify
-----------------------------------
-POST /api/verify/approve/{case_id}  → Officer approves a case
-POST /api/verify/reject/{case_id}   → Officer rejects a case
-POST /api/verify/edit/{case_id}     → Officer edits extracted fields
-GET  /api/verify/{case_id}          → Get review status of a case
-"""
-
-from datetime import datetime
-from typing import Optional, Dict, Any
-
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from ..database import get_db
+from ..models import CaseDocument, ExtractedData, ActionPlan
+from ..schemas import VerifyRequest
+from ..services.audit_service import create_audit_log
+from ..services.feedback_learning_service import store_feedback_signal
+import datetime
+import json
 
-from app.database import get_db
-from app.models import Case
-from app.services.audit_service import AuditService, AuditAction
+router = APIRouter(prefix="/api", tags=["verification"])
 
-router = APIRouter()
-_audit = AuditService()
-
-
-# ── Request schemas ───────────────────────────────────────────────────────────
-
-class ReviewRequest(BaseModel):
-    officer_id:   str
-    officer_name: str
-    notes:        Optional[str] = None
-
-
-class EditRequest(BaseModel):
-    officer_id:     str
-    officer_name:   str
-    changed_fields: Dict[str, Any]
-    notes:          Optional[str] = None
-
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
-
-@router.post("/approve/{case_id}")
-async def approve_case(
-    case_id: str,
-    body:    ReviewRequest,
-    db:      Session = Depends(get_db),
-):
-    """Officer approves the AI-extracted case data."""
-    case = _get_case_or_404(db, case_id)
-
-    case.status      = "approved"
-    case.reviewed_by = body.officer_id
-    case.review_notes = body.notes
-    case.updated_at  = datetime.utcnow()
-    db.commit()
-
-    _audit.log(
-        db,
-        case_id      = case_id,
-        officer_id   = body.officer_id,
-        officer_name = body.officer_name,
-        action       = AuditAction.APPROVE,
-        notes        = body.notes,
-    )
-
-    return JSONResponse({
-        "success":      True,
-        "case_id":      case_id,
-        "status":       "approved",
-        "reviewed_by":  body.officer_name,
-        "timestamp":    datetime.utcnow().isoformat(),
-    })
-
-
-@router.post("/reject/{case_id}")
-async def reject_case(
-    case_id: str,
-    body:    ReviewRequest,
-    db:      Session = Depends(get_db),
-):
-    """Officer rejects the case (e.g., wrong document uploaded)."""
-    case = _get_case_or_404(db, case_id)
-
-    case.status       = "rejected"
-    case.reviewed_by  = body.officer_id
-    case.review_notes = body.notes
-    case.updated_at   = datetime.utcnow()
-    db.commit()
-
-    _audit.log(
-        db,
-        case_id      = case_id,
-        officer_id   = body.officer_id,
-        officer_name = body.officer_name,
-        action       = AuditAction.REJECT,
-        notes        = body.notes,
-    )
-
-    return JSONResponse({
-        "success":     True,
-        "case_id":     case_id,
-        "status":      "rejected",
-        "reviewed_by": body.officer_name,
-        "timestamp":   datetime.utcnow().isoformat(),
-    })
-
-
-@router.post("/edit/{case_id}")
-async def edit_case(
-    case_id: str,
-    body:    EditRequest,
-    db:      Session = Depends(get_db),
-):
-    """
-    Officer manually edits extracted fields.
-    Allowed fields: case_number, petitioner, respondent,
-                    department, directions, review_notes
-    """
-    case = _get_case_or_404(db, case_id)
-
-    ALLOWED = {
-        "case_number", "petitioner", "respondent",
-        "department", "directions", "review_notes",
+@router.get("/review/{case_id}")
+def get_review_details(case_id: int, db: Session = Depends(get_db)):
+    doc = db.query(CaseDocument).filter(CaseDocument.id == case_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Case document not found")
+        
+    ext_data = db.query(ExtractedData).filter(ExtractedData.case_id == case_id).first()
+    action_plan = db.query(ActionPlan).filter(ActionPlan.case_id == case_id).first()
+    
+    # Generate ai_insights
+    ai_insights = {}
+    if action_plan:
+        risk_factors = []
+        if action_plan.risk_factors:
+            try:
+                risk_factors = json.loads(action_plan.risk_factors)
+            except:
+                risk_factors = []
+                
+        ai_insights = {
+            "confidence_breakdown": {
+                "overall_confidence": action_plan.confidence_score or 0
+            },
+            "risk_score": action_plan.risk_score or 0,
+            "risk_factors": risk_factors,
+            "detected_directions": [],
+            "ml_pipeline": [
+                "PDF Text Extraction",
+                "Legal Entity Extraction",
+                "Direction Classification",
+                "Action Plan Classification",
+                "Confidence Scoring",
+                "Risk Scoring",
+                "Human Verification"
+            ]
+        }
+        
+    return {
+        "case_document": {c.name: getattr(doc, c.name) for c in doc.__table__.columns},
+        "extracted_data": {c.name: getattr(ext_data, c.name) for c in ext_data.__table__.columns} if ext_data else None,
+        "action_plan": {c.name: getattr(action_plan, c.name) for c in action_plan.__table__.columns} if action_plan else None,
+        "source_evidence": [{"text": action_plan.source_text if action_plan else "No source evidence available"}],
+        "ai_insights": ai_insights
     }
-    updated = {}
-    for field, value in body.changed_fields.items():
-        if field in ALLOWED:
-            setattr(case, field, value)
-            updated[field] = value
 
-    case.status     = "edited"
-    case.reviewed_by = body.officer_id
-    case.updated_at = datetime.utcnow()
+@router.post("/verify/{case_id}")
+def verify_action_plan(case_id: int, request: VerifyRequest, db: Session = Depends(get_db)):
+    action_plan = db.query(ActionPlan).filter(ActionPlan.case_id == case_id).first()
+    if not action_plan:
+        raise HTTPException(status_code=404, detail="Action plan not found")
+        
+    doc = db.query(CaseDocument).filter(CaseDocument.id == case_id).first()
+    
+    if request.status == "approved":
+        action_plan.verification_status = "verified"
+        doc.status = "verified"
+    elif request.status == "edited":
+        if request.edited_action_plan:
+            for k, v in request.edited_action_plan.items():
+                if hasattr(action_plan, k):
+                    setattr(action_plan, k, v)
+        action_plan.verification_status = "verified"
+        doc.status = "verified"
+    elif request.status == "rejected":
+        action_plan.verification_status = "rejected"
+        doc.status = "rejected"
+        
+    action_plan.reviewer_name = request.reviewer_name
+    action_plan.reviewer_notes = request.reviewer_notes
+    action_plan.verified_at = datetime.datetime.utcnow()
+    
+    create_audit_log(db, case_id, f"Action Plan {request.status}", request.reviewer_name)
+    
+    # Store feedback signal
+    feedback_msg = store_feedback_signal(db, case_id, request.status, request.reviewer_notes or "", request.edited_action_plan or {})
+    
     db.commit()
-
-    _audit.log(
-        db,
-        case_id        = case_id,
-        officer_id     = body.officer_id,
-        officer_name   = body.officer_name,
-        action         = AuditAction.EDIT,
-        notes          = body.notes,
-        changed_fields = updated,
-    )
-
-    return JSONResponse({
-        "success":        True,
-        "case_id":        case_id,
-        "status":         "edited",
-        "updated_fields": updated,
-        "reviewed_by":    body.officer_name,
-        "timestamp":      datetime.utcnow().isoformat(),
-    })
-
-
-@router.get("/{case_id}")
-async def get_verification_status(case_id: str, db: Session = Depends(get_db)):
-    """Return current review status and reviewer info for a case."""
-    case = _get_case_or_404(db, case_id)
-    return JSONResponse({
-        "case_id":      case.id,
-        "status":       case.status,
-        "reviewed_by":  case.reviewed_by,
-        "review_notes": case.review_notes,
-        "updated_at":   case.updated_at.isoformat() if case.updated_at else None,
-    })
-
-
-# ── Helper ────────────────────────────────────────────────────────────────────
-
-def _get_case_or_404(db: Session, case_id: str) -> Case:
-    case = db.query(Case).filter(Case.id == case_id).first()
-    if not case:
-        raise HTTPException(status_code=404, detail="Case not found.")
-    return case
+    db.refresh(action_plan)
+    
+    return {
+        "message": "Verification completed",
+        "feedback_signal": feedback_msg,
+        "action_plan": {c.name: getattr(action_plan, c.name) for c in action_plan.__table__.columns}
+    }

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Upload, FileText, ArrowRight } from 'lucide-react';
 import { useWorkflow } from '../context/WorkflowContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Home = () => {
   const navigate = useNavigate();
   const { advanceStep } = useWorkflow();
+  const { t } = useLanguage();
   const [court, setCourt] = useState('');
   const [caseName, setCaseName] = useState('');
   
@@ -25,18 +27,11 @@ const Home = () => {
       <div className="bg-gradient-to-r from-primary/20 to-surface border border-primary/20 rounded-2xl p-8 relative overflow-hidden">
         <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
         <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-          AI-Powered Court Judgment Assistant
+          {t("appTitle")}
         </h1>
-        <p className="text-lg text-slate-300 max-w-2xl mb-8 leading-relaxed">
-          Streamline legal workflows with automated extraction, action plan generation, and intelligent multilingual verification.
+        <p className="text-lg text-slate-300 max-w-2xl mb-4 leading-relaxed">
+          {t("tagline")}
         </p>
-        <button 
-          onClick={handleStartWorkflow}
-          className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-medium shadow-lg shadow-primary/25 transition-all hover:-translate-y-1"
-        >
-          <Upload className="w-5 h-5" />
-          Start New Case Workflow
-        </button>
       </div>
 
       <div className="bg-surface border border-slate-700 rounded-2xl p-6 shadow-lg">

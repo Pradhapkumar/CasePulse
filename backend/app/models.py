@@ -1,100 +1,120 @@
-"""
-SQLAlchemy ORM Models for CasePulse
--------------------------------------
-Tables:
-    cases       - Uploaded court cases
-    audit_logs  - Officer action history per case
-"""
-
-from datetime import datetime
-from sqlalchemy import (
-    Column, String, Text, Integer, Float,
-    DateTime, Boolean, ForeignKey
-)
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
+from .database import Base
+from datetime import datetime
 
-from app.database import Base
+class CaseDocument(Base):
+    __tablename__ = "case_documents"
 
+    id = Column(Integer, primary_key=True, index=True)
+    case_uid = Column(String, unique=True, index=True)
+    filename = Column(String)
+    file_path = Column(String)
+    raw_text = Column(Text)
+    upload_time = Column(DateTime, default=datetime.utcnow)
+    status = Column(String)
 
-# ── Case ─────────────────────────────────────────────────────────────────────
+    extracted_data = relationship("ExtractedData", back_populates="case_document", uselist=False)
+    action_plan = relationship("ActionPlan", back_populates="case_document", uselist=False)
+    audit_logs = relationship("AuditLog", back_populates="case_document")
 
-class Case(Base):
-    """Represents a single uploaded court judgment / case document."""
+class ExtractedData(Base):
+    __tablename__ = "extracted_data"
 
-    __tablename__ = "cases"
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("case_documents.id"))
+    case_number = Column(String)
+    court_name = Column(String)
+    date_of_order = Column(String)
+    petitioner = Column(String)
+    respondent = Column(String)
+    parties_involved = Column(Text)
+    key_directions = Column(Text)
+    timelines = Column(String)
+    responsible_department = Column(String)
+    important_keywords = Column(Text)
+    confidence_score = Column(Integer)
+    source_snippets = Column(Text)
+    
+    # New fields for Case Summary
+    case_type = Column(String, nullable=True)
+    judgment_date = Column(String, nullable=True)
+    hearings_count = Column(String, nullable=True)
+    legal_sections = Column(JSON, nullable=True)
 
-    id               = Column(String,   primary_key=True, index=True)
-    case_number      = Column(String,   index=True, nullable=True)
-    court_name       = Column(String,   nullable=True)
-    petitioner       = Column(String,   nullable=True)   # Party A
-    respondent       = Column(String,   nullable=True)   # Party B
-    department       = Column(String,   nullable=True)   # Detected department
+    case_document = relationship("CaseDocument", back_populates="extracted_data")
 
-    # Raw / processed text
-    raw_text         = Column(Text,     nullable=True)
-    directions       = Column(Text,     nullable=True)   # Court directions / orders
+class ActionPlan(Base):
+    __tablename__ = "action_plans"
 
-    # AI outputs
-    action_plan      = Column(Text,     nullable=True)   # JSON string
-    deadlines        = Column(Text,     nullable=True)   # JSON string
-    highlights       = Column(Text,     nullable=True)   # JSON string
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("case_documents.id"))
+    action_type = Column(String)
+    required_action = Column(Text)
+    responsible_department = Column(String)
+    deadline = Column(String)
+    priority = Column(String)
+    risk_level = Column(String)
+    reason = Column(Text)
+    source_text = Column(Text)
+    confidence_score = Column(Integer)
+    risk_score = Column(Integer, nullable=True)
+    risk_factors = Column(Text, nullable=True)
+    verification_status = Column(String)
+    reviewer_name = Column(String, nullable=True)
+    reviewer_notes = Column(Text, nullable=True)
+    verified_at = Column(DateTime, nullable=True)
 
-    # Risk & confidence
-    risk_level       = Column(String,   default="Unknown")   # High / Medium / Low
-    confidence_score = Column(Float,    default=0.0)
-    confidence_label = Column(String,   default="Low")       # High / Medium / Low
+    case_document = relationship("CaseDocument", back_populates="action_plan")
 
-    # Officer review status
-    status           = Column(String,   default="pending")   # pending / approved / rejected
-    reviewed_by      = Column(String,   nullable=True)
-    review_notes     = Column(Text,     nullable=True)
+class CaseSummary(Base):
+    __tablename__ = "case_summaries"
 
-    # File metadata
-    file_name        = Column(String,   nullable=True)
-    file_path        = Column(String,   nullable=True)
-    is_scanned       = Column(Boolean,  default=False)
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("case_documents.id"))
+    case_uid = Column(String, unique=True, index=True)
+    case_title = Column(String, nullable=True)
+    case_type = Column(String)
+    case_number = Column(String)
+    court_name = Column(String)
+    judgment_date = Column(String)
+    petitioner = Column(String)
+    respondent = Column(String)
+    hearings_count = Column(String)
+    related_department = Column(String)
+    action_type = Column(String)
+    required_action = Column(Text)
+    deadline = Column(String)
+    priority = Column(String)
+    risk_level = Column(String)
+    confidence_score = Column(Integer)
+    source_evidence = Column(Text)
+    summary_text = Column(Text)
+    qr_url = Column(String)
+    legal_sections = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Timestamps
-    created_at       = Column(DateTime, default=datetime.utcnow)
-    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    audit_logs       = relationship("AuditLog", back_populates="case", cascade="all, delete-orphan")
-
-    def __repr__(self) -> str:
-        return f"<Case id={self.id} case_number={self.case_number} status={self.status}>"
-
-
-# ── Audit Log ─────────────────────────────────────────────────────────────────
+    case_document = relationship("CaseDocument")
 
 class AuditLog(Base):
-    """
-    Records every officer action on a case.
-    Actions: VIEW | APPROVE | EDIT | REJECT | UPLOAD | DELETE
-    """
-
     __tablename__ = "audit_logs"
 
-    id             = Column(Integer, primary_key=True, autoincrement=True)
-    case_id        = Column(String,  ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("case_documents.id"))
+    action = Column(String)
+    performed_by = Column(String)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
-    # Officer info
-    officer_id     = Column(String,  nullable=False, index=True)
-    officer_name   = Column(String,  nullable=False)
+    case_document = relationship("CaseDocument", back_populates="audit_logs")
 
-    # Action details
-    action         = Column(String,  nullable=False)        # APPROVE / EDIT / REJECT …
-    notes          = Column(Text,    nullable=True)         # Free-text officer comment
-    changed_fields = Column(Text,    nullable=True)         # JSON string of edits made
+class User(Base):
+    __tablename__ = "users"
 
-    # When
-    timestamp      = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    # Relationship
-    case           = relationship("Case", back_populates="audit_logs")
-
-    def __repr__(self) -> str:
-        return (
-            f"<AuditLog id={self.id} case_id={self.case_id} "
-            f"action={self.action} officer={self.officer_name}>"
-        )
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    role = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

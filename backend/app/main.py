@@ -1,71 +1,62 @@
-"""
-CasePulse Backend — FastAPI Application Entry Point
-=====================================================
-Routes registered:
-    /api/upload       → Upload PDF
-    /api/extract      → AI/NLP Pipeline
-    /api/action-plan  → Action Plan Generation
-    /api/verify       → Officer Review (approve/edit/reject)
-    /api/cases        → Case CRUD
-    /api/audit        → Audit Trail
-    /api/dashboard    → Dashboard Stats & Feed
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .database import engine, Base
+import os
+from .routes import upload, extraction, action_plan, verification, dashboard, cases, audit, translation, ml, auth, case_summary, search, public, legal_analyzer
+from .services import auth_service
+from .schemas import SignupRequest
 
-from app.database import init_db
-from app.routes import upload, extraction, action_plan, verification, cases, audit, dashboard
+app = FastAPI(title="CasePulse API")
 
-# ── App instance ──────────────────────────────────────────────────────────────
-app = FastAPI(
-    title       = "CasePulse API",
-    description = "AI-powered court case management system for government officers.",
-    version     = "1.0.0",
-    docs_url    = "/docs",
-    redoc_url   = "/redoc",
-)
-
-# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ["*"],   # Tighten in production
-    allow_credentials = True,
-    allow_methods     = ["*"],
-    allow_headers     = ["*"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# ── DB init on startup ────────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup_event():
-    """Create all tables if they don't exist yet."""
-    init_db()
+Base.metadata.create_all(bind=engine)
 
-# ── Routers ───────────────────────────────────────────────────────────────────
-app.include_router(upload.router,       prefix="/api/upload",       tags=["Upload"])
-app.include_router(extraction.router,   prefix="/api/extract",      tags=["Extraction"])
-app.include_router(action_plan.router,  prefix="/api/action-plan",  tags=["Action Plan"])
-app.include_router(verification.router, prefix="/api/verify",       tags=["Verification"])
-app.include_router(cases.router,        prefix="/api/cases",        tags=["Cases"])
-app.include_router(audit.router,        prefix="/api/audit",        tags=["Audit"])
-app.include_router(dashboard.router,    prefix="/api/dashboard",    tags=["Dashboard"])
+os.makedirs("uploads/judgments", exist_ok=True)
+os.makedirs("processed/extracted_text", exist_ok=True)
+os.makedirs("processed/source_snippets", exist_ok=True)
+os.makedirs("database", exist_ok=True)
 
-# ── Health endpoints ──────────────────────────────────────────────────────────
-@app.get("/", tags=["Health"])
-async def root():
+app.include_router(upload.router)
+app.include_router(extraction.router)
+app.include_router(action_plan.router)
+app.include_router(verification.router)
+app.include_router(dashboard.router)
+app.include_router(cases.router)
+app.include_router(audit.router)
+app.include_router(translation.router)
+app.include_router(ml.router)
+app.include_router(auth.router)
+app.include_router(case_summary.router, prefix="/api/case-summary", tags=["Case Summary"])
+app.include_router(search.router, prefix="/api/search", tags=["Search"])
+app.include_router(public.router, prefix="/api/public", tags=["Public Case"])
+app.include_router(legal_analyzer.router)
+
+@app.get("/")
+def root():
     return {
-        "message": "CasePulse API is running ✅",
-        "version": "1.0.0",
-        "docs":    "/docs",
+        "message": "CasePulse Backend is running",
+        "docs": "/docs"
     }
 
+from database.seed_data import seed_db
+from .database import SessionLocal
+db = SessionLocal()
+seed_db(db)
 
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {"status": "healthy"}
-
-
-# ── Dev server ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=3001, reload=True)
+# Seed Demo User
+demo_email = "officer@casepulse.gov"
+if not auth_service.get_user_by_email(db, demo_email):
+    auth_service.create_user(db, SignupRequest(
+        name="Legal Officer",
+        email=demo_email,
+        password="password123",
+        role="Legal Reviewer"
+    ))
+db.close()

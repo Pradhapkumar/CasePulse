@@ -1,27 +1,31 @@
 import React, { useState } from 'react';
-import { Scale, Search, FileText, CheckCircle } from 'lucide-react';
+import { Scale, Search, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import api from '../services/api';
 
 const SectionAnalyzer = () => {
   const [section, setSection] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!section) return;
     setIsAnalyzing(true);
-    // Simulate AI analysis delay
-    setTimeout(() => {
-      setResult({
-        meaning: "This section relates to the punishment for criminal breach of trust. It specifies the penalties applicable when an individual entrusted with property dishonestly misappropriates or converts it to their own use.",
-        legalSteps: [
-          "File an FIR at the local police station.",
-          "Gather evidence of entrustment (receipts, agreements).",
-          "Prove dishonest intention (mens rea) through correspondence or actions."
-        ],
-        actionRequired: "Collect all documentary evidence of the transaction and draft the initial complaint focusing on the specific entrustment clause."
-      });
+    setError(null);
+    try {
+      const data = await api.analyzeLegalSection(section);
+      if (data.found) {
+        setResult(data);
+      } else {
+        setError(data.message);
+        setResult(null);
+      }
+    } catch (err) {
+      console.error("Analysis failed:", err);
+      setError("Failed to connect to Legal Intelligence engine.");
+    } finally {
       setIsAnalyzing(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -59,6 +63,13 @@ const SectionAnalyzer = () => {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4 text-red-500 animate-in fade-in zoom-in duration-300">
+          <AlertCircle className="w-8 h-8 shrink-0" />
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
 
       {result && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4">

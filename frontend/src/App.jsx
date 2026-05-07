@@ -4,8 +4,8 @@ import Layout from './layouts/Layout';
 import { useWorkflow } from './context/WorkflowContext';
 
 // Auth Pages
-import Login from './auth/Login';
-import Register from './auth/Register';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import Profile from './auth/Profile';
 
 // Workflow Pages
@@ -14,43 +14,31 @@ import UploadPage from './pages/UploadPage';
 import ProcessingPage from './pages/ProcessingPage';
 import ReviewPage from './pages/ReviewPage';
 import DashboardPage from './pages/DashboardPage';
+import CaseSummaryPage from './pages/CaseSummaryPage';
+import SearchCasePage from './pages/SearchCasePage';
+import PublicCasePage from './pages/PublicCasePage';
 
 // Feature Pages
 import SectionAnalyzer from './section/SectionAnalyzer';
 import QRScannerPage from './qr/QRScannerPage';
 import AppealTimeline from './components/AppealTimeline';
 
-// Strict navigation guard
-const ProtectedRoute = ({ children, requiredStep }) => {
-  const { currentStep } = useWorkflow();
-  
-  // A simple linear progression simulation
-  const steps = ['upload', 'processing', 'review', 'dashboard'];
-  const currentIndex = steps.indexOf(currentStep);
-  const requiredIndex = steps.indexOf(requiredStep);
-
-  // Allow going back, but not skipping forward beyond the current progress
-  if (requiredStep && requiredIndex > currentIndex) {
-    return <Navigate to={`/${currentStep === 'upload' ? '' : currentStep}`} replace />;
-  }
-
-  return children;
-};
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
   return (
     <Router>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         
         {/* Protected Routes inside Layout */}
         <Route path="/" element={<Layout><Home /></Layout>} />
         
         <Route path="/upload" element={
           <Layout>
-            <ProtectedRoute requiredStep="upload">
+            <ProtectedRoute>
               <UploadPage />
             </ProtectedRoute>
           </Layout>
@@ -58,7 +46,7 @@ function App() {
         
         <Route path="/processing" element={
           <Layout>
-            <ProtectedRoute requiredStep="processing">
+            <ProtectedRoute>
               <ProcessingPage />
             </ProtectedRoute>
           </Layout>
@@ -66,7 +54,7 @@ function App() {
         
         <Route path="/review" element={
           <Layout>
-            <ProtectedRoute requiredStep="review">
+            <ProtectedRoute>
               <ReviewPage />
             </ProtectedRoute>
           </Layout>
@@ -74,16 +62,69 @@ function App() {
         
         <Route path="/dashboard" element={
           <Layout>
-            <ProtectedRoute requiredStep="dashboard">
+            <ProtectedRoute>
               <DashboardPage />
             </ProtectedRoute>
           </Layout>
         } />
 
-        <Route path="/profile" element={<Layout><Profile /></Layout>} />
-        <Route path="/section-analyzer" element={<Layout><SectionAnalyzer /></Layout>} />
-        <Route path="/qr-scanner" element={<Layout><QRScannerPage /></Layout>} />
-        <Route path="/appeal-tracking" element={<Layout><AppealTimeline /></Layout>} />
+        <Route path="/profile" element={
+          <Layout>
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          </Layout>
+        } />
+        
+        <Route path="/section-analyzer" element={
+          <Layout>
+            <ProtectedRoute>
+              <SectionAnalyzer />
+            </ProtectedRoute>
+          </Layout>
+        } />
+        
+        <Route path="/qr-scanner" element={
+          <Layout>
+            <ProtectedRoute>
+              <QRScannerPage />
+            </ProtectedRoute>
+          </Layout>
+        } />
+        
+        <Route path="/appeal-tracking" element={
+          <Layout>
+            <ProtectedRoute>
+              <AppealTimeline />
+            </ProtectedRoute>
+          </Layout>
+        } />
+
+        <Route path="/case/:caseId" element={
+          <Layout>
+            <ProtectedRoute>
+              <ReviewPage />
+            </ProtectedRoute>
+          </Layout>
+        } />
+
+        <Route path="/case-summary/:caseId" element={
+          <Layout>
+            <ProtectedRoute>
+              <CaseSummaryPage />
+            </ProtectedRoute>
+          </Layout>
+        } />
+
+        <Route path="/search-case" element={
+          <Layout>
+            <ProtectedRoute>
+              <SearchCasePage />
+            </ProtectedRoute>
+          </Layout>
+        } />
+
+        <Route path="/public/case/:caseUid" element={<PublicCasePage />} />
         
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

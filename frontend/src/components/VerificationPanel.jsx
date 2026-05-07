@@ -2,31 +2,55 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Edit2, X, MessageSquare } from 'lucide-react';
 import { useWorkflow } from '../context/WorkflowContext';
+import { useLanguage } from '../context/LanguageContext';
 
-const VerificationPanel = () => {
+const VerificationPanel = ({ onVerify }) => {
   const navigate = useNavigate();
   const { advanceStep } = useWorkflow();
+  const { t } = useLanguage();
   const [notes, setNotes] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleApprove = () => {
-    // In a real app, this would send an API request
-    advanceStep('dashboard');
-    navigate('/dashboard');
+  const handleApprove = async () => {
+    if (onVerify) {
+      setIsVerifying(true);
+      const success = await onVerify('approved', notes);
+      setIsVerifying(false);
+      if (success) {
+        advanceStep('dashboard');
+        navigate('/dashboard');
+      }
+    } else {
+      advanceStep('dashboard');
+      navigate('/dashboard');
+    }
+  };
+
+  const handleReject = async () => {
+    if (onVerify) {
+      setIsVerifying(true);
+      const success = await onVerify('rejected', notes);
+      setIsVerifying(false);
+      if (success) {
+        advanceStep('dashboard');
+        navigate('/dashboard');
+      }
+    }
   };
 
   return (
     <div className="bg-surface border border-slate-700 rounded-2xl p-6 shadow-lg sticky top-6">
-      <h3 className="text-xl font-bold text-white mb-6">Human Verification</h3>
+      <h3 className="text-xl font-bold text-white mb-6">{t("humanVerification")}</h3>
       
       <div className="space-y-4 mb-6">
         <label className="block text-sm font-medium text-slate-400 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" /> Reviewer Notes
+          <MessageSquare className="w-4 h-4" /> {t("reviewerNotes")}
         </label>
         <textarea
           rows={4}
           className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-          placeholder="Add your observation or correction notes here..."
+          placeholder={t("addNotesPlaceholder")}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -42,21 +66,26 @@ const VerificationPanel = () => {
           }`}
         >
           <Edit2 className="w-4 h-4" />
-          {isEditing ? 'Cancel Edit' : 'Edit Fields'}
+          {isEditing ? 'Cancel Edit' : t("editFields")}
         </button>
         
-        <button className="flex items-center justify-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/30 py-2.5 rounded-xl font-medium transition-colors">
+        <button 
+          onClick={handleReject}
+          disabled={isVerifying}
+          className="flex items-center justify-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger border border-danger/30 py-2.5 rounded-xl font-medium transition-colors"
+        >
           <X className="w-4 h-4" />
-          Reject
+          {t("reject")}
         </button>
       </div>
 
       <button 
         onClick={handleApprove}
+        disabled={isVerifying}
         className="w-full flex items-center justify-center gap-2 bg-success hover:bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-success/20 transition-all"
       >
         <Check className="w-5 h-5" />
-        Approve & Finalize
+        {isVerifying ? t("processing") : t("approveFinalize")}
       </button>
 
       {isEditing && (

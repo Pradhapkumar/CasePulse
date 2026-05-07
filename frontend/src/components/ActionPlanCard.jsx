@@ -1,8 +1,11 @@
 import React from 'react';
 import { AlertTriangle, Clock, Briefcase, Activity } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import TranslatedText from './common/TranslatedText';
 
 const ActionPlanCard = ({ action }) => {
-  // Using dummy data if no prop provided
+  const { t } = useLanguage();
+  
   const mockAction = action || {
     id: 1,
     required: 'File Counter-Affidavit',
@@ -22,27 +25,29 @@ const ActionPlanCard = ({ action }) => {
     <div className="bg-surface border border-slate-700 rounded-xl p-5 hover:border-primary/50 transition-colors shadow-sm">
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h4 className="text-white font-semibold text-lg">{mockAction.required}</h4>
+          <h4 className="text-white font-semibold text-lg">
+            <TranslatedText text={mockAction.required} />
+          </h4>
           <div className="flex items-center gap-2 text-sm text-slate-400 mt-1">
             <Briefcase className="w-4 h-4" />
-            {mockAction.department}
+            <TranslatedText text={mockAction.department} />
           </div>
         </div>
         <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${priorityColors[mockAction.priority]}`}>
-          {mockAction.priority} Priority
+          {t(mockAction.priority.toLowerCase()) || mockAction.priority} {t("priority")}
         </span>
       </div>
 
       <div className="flex items-center justify-between mb-4 mt-6">
         <div className="flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-warning" />
-          <span className="text-slate-300">Due: <span className="text-white font-medium">{mockAction.deadline}</span></span>
+          <span className="text-slate-300">{t("deadline")}: <span className="text-white font-medium">{mockAction.deadline}</span></span>
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="flex justify-between items-center text-xs">
-          <span className="text-slate-400 flex items-center gap-1"><Activity className="w-3 h-3"/> Risk Level</span>
+          <span className="text-slate-400 flex items-center gap-1"><Activity className="w-3 h-3"/> {t("riskScore")}</span>
           <span className={mockAction.risk > 70 ? 'text-danger font-medium' : 'text-success font-medium'}>
             {mockAction.risk}%
           </span>
