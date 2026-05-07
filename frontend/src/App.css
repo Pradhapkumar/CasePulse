@@ -17,6 +17,7 @@ body {
   padding: 20px;
 }
 
+/* ── Nav ─────────────────────────────────────────────── */
 nav {
   background-color: #333;
   color: white;
@@ -41,6 +42,165 @@ nav a:hover {
   color: #61dafb;
 }
 
+/* Flex row: links on left, language selector on right */
+.app-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app-nav-links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.app-nav-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Language Selector ───────────────────────────────── */
+.language-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  transition: background 0.2s;
+}
+
+.language-selector-wrapper:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.language-selector-icon {
+  font-size: 1rem;
+  user-select: none;
+}
+
+.language-selector {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+  max-width: 160px;
+}
+
+.language-selector option {
+  background: #333;
+  color: #fff;
+}
+
+/* ── Audio Player ────────────────────────────────────── */
+.audio-player-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0.45rem 1rem;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.audio-player-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Dual View ───────────────────────────────────────── */
+.dual-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.dual-view-panel {
+  padding: 0.9rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.dual-view-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.dual-view-single {
+  padding: 0.9rem 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+}
+
+.dual-view-loading {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* ── QR Generator ────────────────────────────────────── */
+.qr-generator {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.qr-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.qr-code-wrapper {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* ── Translating badge ───────────────────────────────── */
+.translating-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 999px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Existing styles (unchanged) ─────────────────────── */
 h1,
 h2 {
   margin-bottom: 1rem;
